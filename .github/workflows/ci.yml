@@ -1,0 +1,29 @@
+name: CI
+
+# Quality gate that runs before Railway deploys. Railway (the CD half) builds this SAME Dockerfile
+# on every push to main — so a green `docker build` here proves the Railway build will succeed too.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the real deployable image. ffmpeg + all deps are installed INSIDE it (per the
+      # Dockerfile) — the runner installs nothing itself.
+      - name: Build the deployable image
+        run: docker build -t autoace:ci .
+
+      # Lint + tests run INSIDE that image, so we test the exact environment that ships. The 3
+      # confidential sample calls aren't in the repo, so the audio-decode tests auto-skip
+      # (tests/conftest.py); the full pure-logic suite still runs.
+      - name: Lint and test inside the image
+        run: |
+          docker run --rm -v "${{ github.workspace }}/tests:/app/tests" autoace:ci \
+            sh -c "pip install --quiet pytest ruff && \
+                   ruff check app --select E9,F63,F7,F82 && \
+                   pytest -q tests"
