@@ -60,6 +60,8 @@ header { display: flex; justify-content: space-between; align-items: baseline; }
 .cost .big { font-size: 15px; font-weight: 700; }
 .cost.failbox { border-color: var(--red); background: #fdf1ef; }
 .cost.failbox b.error { font-size: 15px; }
+.faillist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink); }
+.faillist li { margin: 3px 0; }
 .cost .fallback { color: var(--red); margin-top: 6px; font-size: 12px; }
 .cost .basis { color: var(--muted); margin-top: 6px; font-size: 11px; line-height: 1.5; }
 

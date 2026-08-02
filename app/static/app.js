@@ -125,29 +125,49 @@ async function viewBatch(bid) {
 
 const fmtCost = (c) => (c ? "$" + Number(c).toFixed(6) : "$0");
 
+// Failures get their OWN panel with a human reason — never crammed into the 9 field columns.
+function cleanErr(e) {
+  let s = String(e || "failed")
+    .replace(/\[in#\d+ @ 0x[0-9a-f]+\]/gi, "")        // ffmpeg internal handles
+    .replace(/(file )?storage\/\S+/gi, "the file")    // internal storage path
+    .replace(/^decode:\s*/i, "").replace(/\s+/g, " ").trim();
+  if (/invalid data|protocol not found|decode failed|moov|not.*(audio|supported)/i.test(s))
+    return "couldn’t decode — the file may be corrupt, truncated, or not valid audio";
+  if (/timeout|timed out/i.test(s)) return "timed out while processing";
+  return s.slice(0, 140);
+}
+
+function renderFailures(failed) {
+  const el = $("failPanel");
+  if (!el) return;
+  if (!failed.length) { el.innerHTML = ""; el.hidden = true; return; }
+  el.hidden = false;
+  let h = "<b class='error'>✕ " + failed.length + " file(s) failed to process</b><ul class='faillist'>";
+  for (const f of failed) h += "<li><b>" + esc(f.name) + "</b> — " + esc(cleanErr(f.error)) + "</li>";
+  el.innerHTML = h + "</ul>";
+}
+
 async function showResults() {
   const r = await fetch("/api/batches/" + batchId + "/results");
   const d = await r.json();
   let h = "<tr><th>file</th><th class='src-meta'>model</th><th class='src-meta'>audio&nbsp;tok</th>" +
     "<th class='src-meta'>cost</th>" +
     FIELDS.map((c) => "<th class='src-" + FIELD_SRC[c] + "'>" + c + "</th>").join("") + "</tr>";
-  let totCost = 0, totSec = 0, totTok = 0; const models = new Set();
+  let totCost = 0, totSec = 0, totTok = 0, okRows = 0; const models = new Set(); const failed = [];
   for (const row of d.results) {
     const rj = row.result_json;
+    if (!rj) { failed.push(row); continue; }  // failures go to a SEPARATE panel, not the field columns
+    okRows += 1;
     const cost = row.cost_usd || 0, tok = row.audio_tokens || 0;
     totCost += cost; totSec += row.audio_seconds || 0; totTok += tok;
     if (row.model) models.add(row.model);
     const cc = "<td class='src-meta'>" + esc(row.model || "—") + "</td><td class='src-meta'>" + tok +
       "</td><td class='src-meta'>" + fmtCost(cost) + "</td>";
-    if (!rj) {
-      h += '<tr class="fail"><td>' + esc(row.name) + "</td>" + cc +
-        '<td colspan="9">' + esc(row.error || "failed") + "</td></tr>";
-      continue;
-    }
     h += "<tr><td>" + esc(row.name) + "</td>" + cc +
       FIELDS.map((c) => "<td class='src-" + FIELD_SRC[c] + "'>" + esc(rj[c]) + "</td>").join("") + "</tr>";
   }
-  $("resultsTable").innerHTML = h;
+  $("resultsTable").innerHTML = okRows ? h : "";  // no header when there are no successful rows
+  renderFailures(failed);
   const st = await (await fetch("/api/batches/" + batchId + "/status")).json();
   renderCost(totCost, totSec, totTok, st);
   const allFailed = (st.done || 0) === 0 && (st.failed || 0) > 0;
