@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoAce — Sign in</title>
+  <link rel="stylesheet" href="/static/app.css?v=7">
+</head>
+<body>
+  <main class="card">
+    <h1>AutoAce Analyzer</h1>
+    <p class="muted">Voice tone &amp; background-noise analysis</p>
+    <form id="loginForm">
+      <label>Admin key
+        <input type="password" id="key" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Sign in</button>
+      <p id="err" class="error"></p>
+    </form>
+  </main>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('admin_key', document.getElementById('key').value);
+      const r = await fetch('/api/login', { method: 'POST', body: fd });
+      if (r.ok) { location.href = '/app'; }
+      else { document.getElementById('err').textContent = 'Invalid key'; }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoAce — Dashboard</title>
+  <link rel="stylesheet" href="/static/app.css?v=7">
+</head>
+<body>
+  <main class="card wide">
+    <header><h1>AutoAce Analyzer</h1><span class="muted">upload → process → download</span></header>
+
+    <section id="uploadSec">
+      <h2>Upload batch</h2>
+      <p class="muted">Audio files (ogg / wav / mp3 / flac / m4a / opus) + an optional
+        <code>labels.csv</code>, as a <b>ZIP</b> or a <b>folder</b>.</p>
+      <div class="row">
+        <label>ZIP archive<input type="file" id="zip" accept=".zip"></label>
+        <label>…or a folder<input type="file" id="folder" webkitdirectory directory multiple></label>
+      </div>
+      <div class="row">
+        <button id="uploadBtn">Upload &amp; process</button>
+      </div>
+      <p class="muted">Emotion runs on the server-configured provider with automatic fallback; each
+        result shows the model that actually ran and its cost.</p>
+      <div id="validation"></div>
+    </section>
+
+    <section id="progressSec" hidden>
+      <h2>Processing</h2>
+      <div class="bar"><div id="fill" class="fill"></div></div>
+      <p id="progressText" class="muted"></p>
+    </section>
+
+    <section id="resultsSec" hidden>
+      <h2>Results</h2>
+      <div id="costSummary" class="cost"></div>
+      <div class="row">
+        <a id="dlCsv" class="btn">Download CSV</a>
+        <a id="dlJson" class="btn">Download JSON</a>
+        <button id="compareBtn" class="btn" hidden>Compare vs labels</button>
+      </div>
+      <div id="comparePanel"></div>
+      <div class="legend">
+        <span>source:</span>
+        <span class="tag src-model">model · LLM (paid)</span>
+        <span class="tag src-server">server · local DSP ($0)</span>
+        <span class="tag src-hybrid">hybrid · LLM or DSP</span>
+        <span class="tag src-blend">blended</span>
+      </div>
+      <div class="tablewrap"><table id="resultsTable"></table></div>
+    </section>
+
+    <section id="historySec">
+      <h2>Recent batches</h2>
+      <div id="historyList" class="muted">Loading…</div>
+    </section>
+  </main>
+  <script src="/static/app.js?v=7"></script>
+</body>
+</html>
