@@ -1,0 +1,29 @@
+# --- web wrapper (thin: 5 endpoints) ---
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9     # multipart upload + form
+itsdangerous>=2.1           # signed session cookies
+jinja2>=3.1                 # server-rendered HTML templates
+httpx>=0.27                 # TestClient (tests)
+
+# --- config / validation ---
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# --- persistence ---
+SQLAlchemy>=2.0
+
+# --- core DSP / audio ---
+numpy>=1.26
+scipy>=1.11
+librosa>=0.10               # spectral features (decode is via ffmpeg subprocess)
+soundfile>=0.12
+onnxruntime>=1.17           # Silero VAD (ONNX, torch-free); YAMNet-onnx upgrade later
+webrtcvad-wheels>=2.0.14    # lightweight VAD fallback (prebuilt wheels, no compiler)
+
+# --- emotion providers (only the selected one is used at runtime) ---
+openai>=1.14
+google-genai>=0.3
+
+# --- tooling ---
+pytest>=8.0
