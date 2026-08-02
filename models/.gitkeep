@@ -1,0 +1,1 @@
+# keep this dir in git; ONNX model weights are baked at build time (gitignored)
