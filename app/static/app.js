@@ -1,6 +1,7 @@
 // Vanilla JS dashboard: calls the 5 same-origin APIs (session cookie sent automatically).
 let batchId = null;
 let poll = null;
+let busy = false;   // true while an upload/batch is in flight — blocks double-submit
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -29,25 +30,39 @@ const FIELD_SRC = {
   confidence: "blend",
 };
 
+function setBusy(on) {
+  busy = on;
+  const b = $("uploadBtn");
+  b.disabled = on;
+  b.textContent = on ? "Processing…" : "Upload & process";
+}
+
 $("uploadBtn").addEventListener("click", async () => {
+  if (busy) return;                       // guard against double-clicks / double-submit
   const zipFiles = $("zip").files;
   const folderFiles = $("folder").files;
   const chosen = zipFiles.length ? zipFiles : folderFiles;
   if (!chosen.length) { toast("Choose a ZIP file or a folder first.", "error"); return; }
+  setBusy(true);
   const fd = new FormData();
   for (const f of chosen) fd.append("files", f, f.name);  // ZIP = 1 file; folder = many
   // provider is server-configured (primary + fallback); no per-batch selection needed
 
-  const r = await fetch("/api/batches", { method: "POST", body: fd });
+  let r;
+  try {
+    r = await fetch("/api/batches", { method: "POST", body: fd });
+  } catch (e) { toast("upload failed", "error"); setBusy(false); return; }
   if (r.status === 401) { location.href = "/"; return; }
   const data = await r.json();
   if (!r.ok) {
     const m = (data.error && data.error.message) || "upload failed";
     $("validation").innerHTML = '<p class="error">' + esc(m) + "</p>";
     toast(m, "error");
+    setBusy(false);
     return;
   }
   batchId = data.batch_id;
+  $("zip").value = ""; $("folder").value = "";  // clear selection so a re-click can't re-upload it
   const v = data.validation;
   let msg = "Accepted " + data.total + " file(s).";
   if (v.unmatched_files.length) msg += " Unmatched: " + esc(v.unmatched_files.join(", ")) + ".";
@@ -56,6 +71,8 @@ $("uploadBtn").addEventListener("click", async () => {
   toast("Accepted " + data.total + " file(s) — processing…", "ok");
 
   $("progressSec").hidden = false;
+  $("resultsSec").hidden = true;          // fresh view for the new batch
+  if (poll) clearInterval(poll);          // never leak a previous poll (that would wipe the compare panel)
   poll = setInterval(updateStatus, 1200);
   updateStatus();
 });
@@ -74,7 +91,8 @@ async function updateStatus() {
     (s.cost_usd ? " · " + fmtCost(s.cost_usd) +
       " (" + Number(s.cost_per_min || 0).toFixed(6) + "/min)" : "") + fb;
   if (s.status === "done") {
-    clearInterval(poll);
+    clearInterval(poll); poll = null;   // stop AND null it so nothing stray keeps re-rendering
+    setBusy(false);
     const allFail = s.done === 0 && s.failed > 0;
     toast(allFail ? "Batch failed — all " + s.failed + " file(s) errored"
       : "Done — " + s.done + " processed" + (s.failed ? ", " + s.failed + " failed" : ""),
