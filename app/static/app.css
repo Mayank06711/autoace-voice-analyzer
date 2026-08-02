@@ -58,6 +58,8 @@ header { display: flex; justify-content: space-between; align-items: baseline; }
 .cost b.ok, .cost .big.ok { color: var(--green); }
 .cost b.error, .cost .big.error { color: var(--red); }
 .cost .big { font-size: 15px; font-weight: 700; }
+.cost.failbox { border-color: var(--red); background: #fdf1ef; }
+.cost.failbox b.error { font-size: 15px; }
 .cost .fallback { color: var(--red); margin-top: 6px; font-size: 12px; }
 .cost .basis { color: var(--muted); margin-top: 6px; font-size: 11px; line-height: 1.5; }
 

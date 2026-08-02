@@ -75,7 +75,9 @@ async function updateStatus() {
       " (" + Number(s.cost_per_min || 0).toFixed(6) + "/min)" : "") + fb;
   if (s.status === "done") {
     clearInterval(poll);
-    toast("Done — " + s.done + " processed" + (s.failed ? ", " + s.failed + " failed" : ""),
+    const allFail = s.done === 0 && s.failed > 0;
+    toast(allFail ? "Batch failed — all " + s.failed + " file(s) errored"
+      : "Done — " + s.done + " processed" + (s.failed ? ", " + s.failed + " failed" : ""),
       s.failed ? "error" : "ok");
     showResults();
     loadHistory();
@@ -148,7 +150,11 @@ async function showResults() {
   $("resultsTable").innerHTML = h;
   const st = await (await fetch("/api/batches/" + batchId + "/status")).json();
   renderCost(totCost, totSec, totTok, st);
-  $("compareBtn").hidden = !st.has_labels;   // only when a manifest carried real ground truth
+  const allFailed = (st.done || 0) === 0 && (st.failed || 0) > 0;
+  // on a total failure there's nothing meaningful to download or compare
+  $("dlCsv").hidden = allFailed;
+  $("dlJson").hidden = allFailed;
+  $("compareBtn").hidden = allFailed || !st.has_labels;  // labels only, and only if something ran
   $("comparePanel").innerHTML = "";
   $("dlCsv").href = "/api/batches/" + batchId + "/download?fmt=csv";
   $("dlJson").href = "/api/batches/" + batchId + "/download?fmt=json";
@@ -200,6 +206,16 @@ function renderCompare(d) {
 function renderCost(cost, sec, tok, st) {
   const el = $("costSummary");
   if (!el) return;
+  const done = st.done || 0, failed = st.failed || 0, total = st.total || 0;
+  // Nothing was analyzed → this is a FAILURE, not a cost readout. Never fake a green "under ceiling".
+  if (done === 0 && failed > 0) {
+    el.className = "cost failbox";
+    el.innerHTML = "<b class='error'>✕ Batch failed — all " + failed + " file(s) errored.</b>" +
+      "<div class='basis'>Nothing was analyzed, so there is no cost or result. " +
+      "See the per-file reason in the red rows below.</div>";
+    return;
+  }
+  el.className = "cost";
   const perMin = sec > 0 ? cost / (sec / 60) : 0;
   const ok = perMin <= 0.003;
   const mins = sec / 60;
@@ -210,6 +226,11 @@ function renderCost(cost, sec, tok, st) {
     "<div class='basis'>= total <b>" + fmtCost(cost) + "</b> ÷ <b>" + mins.toFixed(2) +
     " audio-min</b> (" + tok + " audio tokens). The ceiling is a per-minute RATE — total $ scales with " +
     "call length, but longer calls amortize the fixed prompt (lower $/min); very short clips cost more/min.</div>";
+  if (failed > 0) {  // some succeeded, some failed → warn about the skipped files (cost is for the rest)
+    html += "<div class='fallback'>⚠ " + failed + " of " + total +
+      " file(s) failed and were skipped — cost above is for the " + done + " that succeeded; " +
+      "see the red rows below.</div>";
+  }
   if (requested && served.length && !served.includes(requested)) {
     html += "<div class='fallback'>⚠ <b>" + esc(requested) + "</b> unavailable — served by <b>" +
       esc(served.join(", ")) + "</b> (" + esc(models.join(", ")) + ") via automatic fallback.</div>";
