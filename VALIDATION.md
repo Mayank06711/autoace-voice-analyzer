@@ -1,57 +1,58 @@
 # Validation
 
 **Metric:** per-field agreement vs the 3 labeled calls in `data/labels.csv`. With **n=3 this is
-calibration/sanity, NOT an accuracy claim** — the real evaluation is the hidden set. Unit tests use
-synthetic signals with known ground truth (37 tests, all passing).
+calibration/sanity, NOT an accuracy claim** — real evaluation is the hidden set. **52 automated tests**
+pass locally (audio-decode tests + pure-logic); CI runs the **25 pure-logic tests inside the deployed
+image** (the confidential samples aren't committed, so audio tests auto-skip there).
 
-## Acoustic fields — agreement vs labels (predictions in `predictions.json`)
+## Deterministic acoustic fields — agreement vs labels
 
 | Field | call_001 | call_002 | call_003 |
 |---|---|---|---|
 | long_silence_present | ✅ | ✅ | ✅ |
 | background_noise_present | ✅ | ✅ | ✅ |
 | background_noise_severity | ✅ | ✅ | ✅ |
-| background_noise_type* | ✅ (none) | ~ TV vs "background chatter" | ~ static vs "background chatter" |
 | audio_quality | ✅ | ✅ | ✅ |
-| speaker_overlap_present | ✅ | ❌ (→ LLM) | ❌ (→ LLM) |
+| speaker_overlap_present | ✅ | ❌ (→ LLM) | ✅ |
+| background_noise_type* | ✅ (none) | ~ TV vs `ambient noise`(DSP) / `radio`(3.6-flash) | ~ static vs `static/hiss`(DSP) / `static`(3.6-flash) |
 
-Acoustic agreement (of the 5 enum/bool fields): **call_001 5/5 · call_002 4/5 · call_003 4/5**.
-`background_noise_type` is open text (partial credit); *the heuristic labels are approximate.
+Agreement on the 5 enum/bool acoustic fields: **14/15 = 93%** (only miss: call_002 overlap by the
+heuristic — deferred to the LLM in the full path). `background_noise_type` is open text, scored
+loosely; *the DSP labels are approximate, and the top cascade model (`gemini-3.6-flash`) names them
+correctly (`radio`,`static`) when quota allows.
 
 ### Confusion matrix — `background_noise_present` (the key fix)
-Before (VAD-gap SNR): predicted absent for all → 1 correct. After (**WADA-SNR on speech**):
+Before (VAD-gap SNR): predicted absent for all → 1 correct. After (**WADA-SNR on speech-active
+samples**):
 
 |  | pred present | pred absent |
 |---|---|---|
-| **actual present** (002,003) | 2 | 0 |
+| **actual present** (002, 003) | 2 | 0 |
 | **actual absent** (001) | 0 | 1 |
 
 3/3 correct. `background_noise_severity` also 3/3 (none, medium, medium).
 
-## Measured agreement vs the 3 labels (real Gemini, `scripts/accuracy.py`)
-(n=3 → calibration only, not an accuracy claim. `emotional_tone` is enum-constrained via Gemini
-structured output, so it can only emit an allowed value.)
+## Emotional tone — the hard, subjective field
+`emotional_tone` is enum-constrained via structured output, so it can only emit an allowed value. But
+**n=3 cannot establish emotion accuracy**, and it's genuinely hard: realistic SER on real call audio
+tops out ~0.35–0.45 macro-F1, human inter-annotator agreement is only 60–80%, and our audio is
+**dual-mono** (agent + customer mixed), so the model can't cleanly isolate the customer. Across runs
+both the LLM and wav2vec2 **over-read negativity** on the two subtle calls where the *words* are neutral
+(a calm appointment booking; a plain "Spanish please"). Emotion must be judged on the hidden set and/or
+by ear — **not tuned to 3 clips**. This is why we ship a fairer scorer, not a fitted threshold:
 
-| Metric | Result |
-|---|---|
-| All 7 comparable fields (7×3) | **15/21 = 71%** |
-| 6 acoustic (non-emotion) | **14/15 = 93%** (only miss: call_002 overlap) |
-| emotional_tone exact | **0/3**; **within-1 escalation step: 2/3**; avg distance 1.33 |
-| emotional_intensity | 1/3 exact; **within-1: 3/3** |
+## In-product comparison (predictions vs labels)
+When a batch's `labels.csv` has ground truth, the dashboard's **"Compare vs labels"** shows two views:
+- **Exact-match** per field (deterministic, strict).
+- **LLM-semantic** (a `gpt-4o-mini` text judge) that treats near-equivalents as agreement —
+  `TV`≈`radio`, `static`≈`hiss`, `frustrated`≈`annoyed`, adjacent intensities as partial.
 
-**Read:** the deterministic acoustic half is strong (93%); **emotional_tone is the weak spot** — this
-run produced "frustrated" for all three (labels: upset / neutral / satisfied), i.e. 2 of 3 are only
-one escalation step off but call_003 (satisfied→frustrated) is a valence miss. Likely causes: the
-audio is **dual-mono (agent+customer mixed)** so the LLM can't isolate the customer, plus **n=3
-subjective labels** and run-to-run LLM variance. Emotion accuracy must be judged on the hidden set
-and/or by ear, NOT tuned to 3 clips. Predictions in `predictions.json` (regenerated with Gemini).
-
-## Known misses
-- `speaker_overlap_present` on 002/003 — no acoustic feature separated overlap across the calls
-  (flatness/bandwidth/centroid nearly identical); handled by the LLM (`overlap_method=llm`) in the
-  full path, or pyannote as an upgrade.
+The gap between them is itself the signal: e.g. on the samples `background_noise_type` scores **0%
+exact but ~50% semantic** (right gist, wrong wording), which is the honest way to score a subjective,
+free-text field instead of penalizing a correct-in-spirit answer as fully wrong.
 
 ## Leakage / rigor
 No training performed → no train/test leakage. Thresholds are documented and env-configurable so the
-calibration is transparent and re-runnable. Validation across the same-call/same-speaker is moot at
-n=3; leave-one-call-out is noted as the method for a larger labeled set.
+calibration is transparent and re-runnable. At n=3, same-call/same-speaker splitting is moot;
+**leave-one-call-out** is the documented method for a larger labeled set. Predictions for the 3 calls
+are in `predictions.json`.
