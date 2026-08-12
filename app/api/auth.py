@@ -17,6 +17,13 @@ def verify_admin(key: str, s: Settings) -> bool:
     return bool(key) and key == s.admin_key
 
 
+def verify_login(username: str, password: str, s: Settings) -> bool:
+    """Traditional username + password: username is case-insensitive (default 'admin'); the
+    password is the admin key. Both must match."""
+    user_ok = bool(username) and username.strip().lower() == (s.admin_user or "admin").strip().lower()
+    return user_ok and verify_admin(password, s)
+
+
 def make_token(s: Settings) -> str:
     return _serializer(s).dumps({"ok": True})
 

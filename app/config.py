@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # --- env / auth ---
     env: str = "dev"                   # dev | production (production refuses default secrets)
+    admin_user: str = "admin"          # login username (case-insensitive); the password is admin_key
     admin_key: str = "changeme"
     session_secret: str = "dev-secret-change-me"
     max_upload_mb: int = 200           # reject uploads larger than this

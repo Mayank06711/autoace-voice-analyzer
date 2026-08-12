@@ -4,17 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AutoAce — Sign in</title>
-  <link rel="stylesheet" href="/static/app.css?v=10">
+  <link rel="stylesheet" href="/static/app.css?v=11">
 </head>
 <body>
   <main class="card">
     <h1>AutoAce Analyzer</h1>
     <p class="muted">Voice tone &amp; background-noise analysis</p>
-    <form id="loginForm">
-      <label>Admin key
-        <input type="password" id="key" autocomplete="current-password" required>
+    <!-- Standard username + password form (name/autocomplete attributes set so browsers, password
+         managers, and automated agents can find and fill the fields). -->
+    <form id="loginForm" method="post" action="/api/login" autocomplete="on">
+      <label for="username">Username
+        <input type="text" id="username" name="username" autocomplete="username"
+               placeholder="admin" required>
+      </label>
+      <label for="password">Password
+        <input type="password" id="password" name="password" autocomplete="current-password"
+               placeholder="admin key" required>
       </label>
       <button type="submit">Sign in</button>
+      <p class="muted">Username is <b>admin</b>; the password is the admin key you were provided.</p>
       <p id="err" class="error"></p>
     </form>
   </main>
@@ -22,10 +30,11 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData();
-      fd.append('admin_key', document.getElementById('key').value);
+      fd.append('username', document.getElementById('username').value);
+      fd.append('password', document.getElementById('password').value);
       const r = await fetch('/api/login', { method: 'POST', body: fd });
       if (r.ok) { location.href = '/app'; }
-      else { document.getElementById('err').textContent = 'Invalid key'; }
+      else { document.getElementById('err').textContent = 'Invalid username or password'; }
     });
   </script>
 </body>

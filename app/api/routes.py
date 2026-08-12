@@ -46,10 +46,10 @@ def app_page(request: Request):
 
 # ---------- JSON API (auth on all) ----------
 @router.post("/api/login")
-async def login(request: Request, admin_key: str = Form(...)):
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     s = get_settings()
-    if not auth.verify_admin(admin_key, s):
-        return _err("unauthorized", "invalid admin key", 401)
+    if not auth.verify_login(username, password, s):
+        return _err("unauthorized", "invalid username or password", 401)
     resp = JSONResponse({"ok": True})
     # secure flag on HTTPS so the session cookie isn't sent in cleartext (off for local http)
     resp.set_cookie(auth.COOKIE, auth.make_token(s), httponly=True, samesite="lax",

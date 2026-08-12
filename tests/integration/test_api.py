@@ -32,12 +32,12 @@ def test_auth_required_on_every_endpoint(tmp_path, monkeypatch):
     assert c.get("/api/batches/x/status").status_code == 401
     assert c.get("/api/batches/x/results").status_code == 401
     assert c.get("/api/batches/x/download").status_code == 401  # download guarded too
-    assert c.post("/api/login", data={"admin_key": "wrong"}).status_code == 401
+    assert c.post("/api/login", data={"username": "admin", "password": "wrong"}).status_code == 401
 
 
 def test_login_upload_status_download(tmp_path, monkeypatch):
     c = _client(tmp_path, monkeypatch)
-    assert c.post("/api/login", data={"admin_key": "secret"}).status_code == 200
+    assert c.post("/api/login", data={"username": "admin", "password": "secret"}).status_code == 200
 
     r = c.post("/api/batches",
                files=[("files", ("d.zip", _zip_one(), "application/zip"))],
@@ -66,7 +66,7 @@ def test_login_upload_status_download(tmp_path, monkeypatch):
 def test_folder_upload_multiple_files(tmp_path, monkeypatch):
     # brief §7: a FOLDER upload = many files (not a zip) -> ingest_dir path
     c = _client(tmp_path, monkeypatch)
-    c.post("/api/login", data={"admin_key": "secret"})
+    c.post("/api/login", data={"username": "admin", "password": "secret"})
     audio = (Path("data") / "call_001.ogg").read_bytes()
     r = c.post("/api/batches",
                files=[("files", ("call_001.ogg", audio, "audio/ogg")),
@@ -80,7 +80,7 @@ def test_folder_upload_multiple_files(tmp_path, monkeypatch):
 def test_batch_history_listing(tmp_path, monkeypatch):
     # GET /api/batches powers the "Recent batches" dashboard panel — persists across page reloads.
     c = _client(tmp_path, monkeypatch)
-    c.post("/api/login", data={"admin_key": "secret"})
+    c.post("/api/login", data={"username": "admin", "password": "secret"})
     assert c.get("/api/batches").json()["batches"] == []  # empty before any upload
 
     r = c.post("/api/batches",
@@ -99,7 +99,7 @@ def test_batch_history_listing(tmp_path, monkeypatch):
 
 def test_unknown_batch_and_bad_provider(tmp_path, monkeypatch):
     c = _client(tmp_path, monkeypatch)
-    c.post("/api/login", data={"admin_key": "secret"})
+    c.post("/api/login", data={"username": "admin", "password": "secret"})
     # unknown batch -> 404 (not empty 200) on results and download
     assert c.get("/api/batches/nope/results").status_code == 404
     assert c.get("/api/batches/nope/download").status_code == 404
