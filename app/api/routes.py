@@ -33,6 +33,10 @@ def _err(code: str, message: str, status: int) -> JSONResponse:
 # ---------- HTML pages ----------
 @router.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
+    # already signed in → go straight to the app (mirror of the /app guard below)
+    s = get_settings()
+    if auth.valid_session(request.cookies.get(auth.COOKIE), s):
+        return RedirectResponse("/app")
     return templates.TemplateResponse(request, "login.html")
 
 

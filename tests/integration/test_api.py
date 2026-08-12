@@ -35,6 +35,15 @@ def test_auth_required_on_every_endpoint(tmp_path, monkeypatch):
     assert c.post("/api/login", data={"username": "admin", "password": "wrong"}).status_code == 401
 
 
+def test_root_redirects_to_app_when_already_logged_in(tmp_path, monkeypatch):
+    c = _client(tmp_path, monkeypatch)
+    assert c.get("/", follow_redirects=False).status_code == 200  # logged out → login page
+    c.post("/api/login", data={"username": "admin", "password": "secret"})
+    r = c.get("/", follow_redirects=False)  # logged in → straight to /app, not the login page
+    assert r.status_code in (302, 307)
+    assert r.headers["location"] == "/app"
+
+
 def test_login_upload_status_download(tmp_path, monkeypatch):
     c = _client(tmp_path, monkeypatch)
     assert c.post("/api/login", data={"username": "admin", "password": "secret"}).status_code == 200
